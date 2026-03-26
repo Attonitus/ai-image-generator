@@ -53,7 +53,7 @@ export default function CreatePage() {
                 // Load image projects
                 if (projectsResult.success && projectsResult.imageProjects) {
                     const mappedProjects = projectsResult.imageProjects.map(
-                        (project) => ({
+                        (project: any) => ({
                             s3_key: project.s3Key,
                             imageUrl: project.imageUrl,
                             prompt: project.prompt,
