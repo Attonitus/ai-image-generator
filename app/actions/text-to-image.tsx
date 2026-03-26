@@ -114,7 +114,7 @@ export const getUserImageProjectsAction = async () => {
         });
 
         // big int arent serializable convert seed to number
-        const safeProjects = imageProjects.map((project) => ({
+        const safeProjects = imageProjects.map((project: any) => ({
             ...project,
             seed: Number(project.seed)
         }));
