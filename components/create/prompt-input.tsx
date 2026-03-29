@@ -54,8 +54,8 @@ export default function PromptInput({
                         value={prompt}
                         onChange={(e) => setPrompt(e.target.value)}
                         placeholder="A high quality product photo of a nano banana on a wooden table, studio lighting"
-                        maxLength={500}
-                        rows={8}
+                        maxLength={1500}
+                        rows={10}
                         className="border-input bg-background w-full rounded-md border px-3 py-2 text-sm focus:border-blue-400 focus:ring-2 focus:ring-blue-400"
                     />
                     <input
@@ -65,7 +65,7 @@ export default function PromptInput({
                         className="border-input bg-background w-full rounded-md border px-3 py-2 text-sm"
                     />
                     <div className="flex items-center justify-between text-xs text-gray-500">
-                        <span>{prompt.length}/500 characters</span>
+                        <span>{prompt.length}/1500 characters</span>
                         {prompt.length > 0 && (
                             <Button
                                 onClick={() => setPrompt("")}
