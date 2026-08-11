@@ -1,35 +1,21 @@
 "use client";
 
 import { RedirectToSignIn, SignedIn } from "@daveyplate/better-auth-ui";
-import { Loader2 } from "lucide-react";
-import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
-import { authClient } from "@/lib/auth-client";
-import { generateImageAction, getUserImageProjectsAction } from "@/app/actions/text-to-image";
 import ImageSettings from "@/components/create/image-settings";
 import PromptInput from "@/components/create/prompt-input";
-import ImageHistory from "@/components/create/image-history";
 
 
 export interface GeneratedImage {
-    s3_key: string;
     imageUrl: string;
     prompt: string;
-    negativePrompt?: string | null;
-    width: number;
-    height: number;
-    numInferenceSteps: number;
-    guidanceScale: number;
     seed: number;
     modelId: string;
-    timestamp: Date;
 }
 
 export default function CreatePage() {
 
-    const router = useRouter();
-    const [isLoading, setIsLoading] = useState(true);
     const [isGenerating, setIsGenerating] = useState(false);
     const [prompt, setPrompt] = useState("");
     const [negativePrompt, setNegativePrompt] = useState("");
@@ -38,46 +24,13 @@ export default function CreatePage() {
     const [numInferenceSteps, setNumInferenceSteps] = useState(9);
     const [guidanceScale, setGuidanceScale] = useState(0);
     const [seed, setSeed] = useState("");
-    const [generatedImages, setGeneratedImages] = useState<GeneratedImage[]>([]);
     const [currentImage, setCurrentImage] = useState<GeneratedImage | null>(null);
+    const imageUrlRef = useRef<string | null>(null);
 
     useEffect(() => {
-        const initializeData = async () => {
-            try {
-                // Run all data fetching in parallel for faster loading
-                const [, projectsResult] = await Promise.all([
-                    authClient.getSession(),
-                    getUserImageProjectsAction(),
-                ]);
-
-                // Load image projects
-                if (projectsResult.success && projectsResult.imageProjects) {
-                    const mappedProjects = projectsResult.imageProjects.map(
-                        (project: any) => ({
-                            s3_key: project.s3Key,
-                            imageUrl: project.imageUrl,
-                            prompt: project.prompt,
-                            negativePrompt: project.negativePrompt,
-                            width: project.width,
-                            height: project.height,
-                            numInferenceSteps: project.numInferenceSteps,
-                            guidanceScale: project.guidanceScale,
-                            seed: project.seed,
-                            modelId: project.modelId,
-                            timestamp: new Date(project.createdAt),
-                        }),
-                    );
-                    setGeneratedImages(mappedProjects);
-                }
-
-                setIsLoading(false);
-            } catch (error) {
-                console.error("Error initializing data:", error);
-                setIsLoading(false);
-            }
+        return () => {
+            if (imageUrlRef.current) URL.revokeObjectURL(imageUrlRef.current);
         };
-
-        initializeData();
     }, []);
 
     const generateImage = async () => {
@@ -93,40 +46,39 @@ export default function CreatePage() {
 
         setIsGenerating(true);
         try {
-            const result = await generateImageAction({
-                prompt,
-                negative_prompt: negativePrompt.trim()
-                    ? negativePrompt.trim()
-                    : undefined,
-                width: width,
-                height: height,
-                num_inference_steps: numInferenceSteps,
-                guidance_scale: guidanceScale,
-                seed: seed.trim() ? parseInt(seed, 10) : undefined,
+            const response = await fetch("/api/generate-image", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    prompt,
+                    negative_prompt: negativePrompt.trim()
+                        ? negativePrompt.trim()
+                        : undefined,
+                    width,
+                    height,
+                    num_inference_steps: numInferenceSteps,
+                    guidance_scale: guidanceScale,
+                    seed: seed.trim() ? parseInt(seed, 10) : undefined,
+                }),
             });
 
-            if (!result.success || !result.imageUrl || !result.s3_key) {
-                throw new Error(result.error ?? "Generation failed");
+            if (!response.ok) {
+                const result = await response.json().catch(() => null);
+                throw new Error(result?.error ?? "Generation failed");
             }
 
-            router.refresh();
+            const imageUrl = URL.createObjectURL(await response.blob());
+            if (imageUrlRef.current) URL.revokeObjectURL(imageUrlRef.current);
+            imageUrlRef.current = imageUrl;
 
             const newImage: GeneratedImage = {
-                s3_key: result.s3_key,
-                imageUrl: result.imageUrl,
+                imageUrl,
                 prompt,
-                negativePrompt: negativePrompt.trim() ? negativePrompt.trim() : null,
-                width,
-                height,
-                numInferenceSteps,
-                guidanceScale,
-                seed: result.seed ?? (seed.trim() ? parseInt(seed, 10) : 0),
-                modelId: result.modelId ?? "Tongyi-MAI/Z-Image-Turbo",
-                timestamp: new Date(),
+                seed: Number(response.headers.get("x-seed") ?? seed) || 0,
+                modelId: response.headers.get("x-model-id") ?? "Tongyi-MAI/Z-Image-Turbo",
             };
 
             setCurrentImage(newImage);
-            setGeneratedImages([newImage, ...generatedImages].slice(0, 20));
 
             toast.success("Image generated successfully!");
         } catch (error) {
@@ -138,14 +90,6 @@ export default function CreatePage() {
             setIsGenerating(false);
         }
     };
-
-    if (isLoading) {
-        return (
-            <div className="flex min-h-[400px] items-center justify-center">
-                <Loader2 className="h-8 w-8 animate-spin" />
-            </div>
-        );
-    }
 
     return (
         <>
@@ -194,17 +138,17 @@ export default function CreatePage() {
                                     negativePrompt={negativePrompt}
                                     setNegativePrompt={setNegativePrompt}
                                     currentImage={currentImage}
-                                    onDownload={(img) => window.open(img.imageUrl, "_blank")}
+                                    onDownload={(img) => {
+                                        const link = document.createElement("a");
+                                        link.href = img.imageUrl;
+                                        link.download = "generated-image.png";
+                                        link.click();
+                                    }}
                                 />
                             </div>
                         </div>
                     </div>
 
-                    {/* History Section */}
-                    <ImageHistory
-                        generatedImages={generatedImages}
-                        onDownload={(img) => window.open(img.imageUrl, "_blank")}
-                    />
                 </div>
             </SignedIn>
         </>

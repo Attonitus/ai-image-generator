@@ -1,7 +1,6 @@
 import { auth } from "@/auth"
 import { prisma } from "@/lib/prisma";
 import { headers } from "next/headers"
-import { success } from "zod";
 
 
 export const getUserCredits = async () => {

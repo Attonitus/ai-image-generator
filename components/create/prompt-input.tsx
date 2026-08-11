@@ -7,17 +7,10 @@ import { Button } from "../ui/button";
 
 
 export interface GeneratedImage {
-    s3_key: string;
     imageUrl: string;
     prompt: string;
-    negativePrompt?: string | null;
-    width: number;
-    height: number;
-    numInferenceSteps: number;
-    guidanceScale: number;
     seed: number;
     modelId: string;
-    timestamp: Date;
 }
 
 interface PromptInputProps {
@@ -92,7 +85,7 @@ export default function PromptInput({
                                     className="h-6 gap-1 px-2 text-blue-700 hover:bg-blue-100"
                                 >
                                     <Download className="h-3 w-3" />
-                                    <span className="text-xs">Download</span>
+                                     <span className="text-xs">Download</span>
                                 </Button>
                             </div>
                             <p className="mb-2 line-clamp-2 text-xs text-blue-800">
